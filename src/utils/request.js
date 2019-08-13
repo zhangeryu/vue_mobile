@@ -5,6 +5,9 @@ import axios from 'axios'
 // 导入vuex模块
 import store from '@/store/'
 
+// 导入处理大数字的依赖
+import JSONBigint from 'json-bigint'
+
 const request = axios.create({
   baseURL: 'http://ttapi.research.itcast.cn'
 })
@@ -21,6 +24,16 @@ request.interceptors.request.use(function (config) {
   // Do something with request error
   return Promise.reject(error)
 })
+
+// 在响应拦截器返回数据之前将一些浏览器无法读取的数据进行处理，例如大数字的处理
+request.defaults.transformResponse = [function (data) {
+  try {
+    return JSONBigint.parse(data)
+
+  } catch(err) {
+    return data
+  }
+}]
 
 // 使用响应拦截器对服务器返回的数据进行处理
 request.interceptors.response.use(function (response) {

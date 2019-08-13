@@ -6,11 +6,15 @@
     <van-pull-refresh v-model="isLoading" @refresh="onRefresh">
       <!-- 频道--滑动导航栏 -->
       <van-tabs color="#3e9df8" title-active-color="#3e9df8" v-model="activeIndex">
+        <!-- 频道右侧图标 -->
+        <div slot="nav-right">
+          <van-icon name="wap-nav" class="wap-nav" @click="showChannel=true"/>
+        </div>
         <van-tab v-for="item in channeList" :title="item.name" :key="item.id">
           <!-- 列表区域 -->
           <van-list v-model="loading" :finished="finished" finished-text="没有更多了" @load="onLoad">
             <!-- 文章显示区域  item.articles里的item代表的是当前的频道-->
-            <van-cell v-for="item in item.articles" :key="item.art_id" :title="item.title">
+            <van-cell v-for="(item,index) in item.articles" :key="index" :title="item.title">
               <!-- 使用vant组件中单元格的插槽属性label自定义内容 -->
               <div slot="label">
                 <!-- 使用模板标签判断当前图片的type值来渲染图片数量 -->
@@ -24,7 +28,9 @@
                 <p>
                   <span>{{item.aut_name}}</span>&nbsp;
                   <span>{{item.comm_count}}评论</span>&nbsp;
-                  <span>{{item.pubdate}}</span>
+                  <span>{{item.pubdate | format }}</span>
+                    <!-- 关闭按钮  此时的item就是文章数据-->
+                  <van-icon name="close" class="close" @click="handleShowDialog(item)"/>
                 </p>
               </div>
             </van-cell>
@@ -32,6 +38,12 @@
         </van-tab>
       </van-tabs>
     </van-pull-refresh>
+    <!-- 弹出层 -->
+    <!-- v-model="showDialog" 是双向数据绑定，语法糖解析为 v-bind:value="showDialog" @input="showDialog=$event"-->
+    <!-- 父组件通过在子组件中的props属性要将当前点击的文章对象传递给子组件 -->
+    <more-action v-model="showDialog" :currentArticle="currentArticle" @handleSuccess="handleSuccess"
+    @blackListSuccess="blackListSuccess"></more-action>
+    <home-channel v-model="showChannel"></home-channel>
   </div>
 </template>
 
@@ -40,8 +52,15 @@
 import { getChanneList } from '@/api/channels.js'
 // 导入获取文章数据的方法
 import { getArticles } from '@/api/articles.js'
+// 导入弹出层组件
+import moreAction from '@/views/home/components/moreAction.vue'
+import homeChannel from '@/views/home/components/HomeChannel.vue'
 export default {
   name: 'home',
+  components: {
+    moreAction,
+    homeChannel
+  },
   data () {
     return {
       // 文章列表数据
@@ -55,8 +74,12 @@ export default {
       channeList: [],
       // 定义被选中的频道状态
       activeIndex: 0,
-      // 获取当前时间戳
-      timestamp: Date.now()
+      // 控制弹出层显示与隐藏
+      showDialog: false,
+      // 记录当前点击x文章对象
+      currentArticle: {},
+      // 控制顶部弹出层显示与隐藏
+      showChannel: false
     }
   },
   created () {
@@ -95,11 +118,15 @@ export default {
         // 这样的数据信息就是响应式的  $set(target, 添加的属性名称, 保存的格式)
         this.$set(item, 'articles', [])
         // this.articles = []  这种方式添加的属性不会生成
+        // 根据频道动态添加对应的记录时间戳的属性
+        item.timestamp = Date.now()
       })
     },
 
     //  手指向上滑动触发事件 == 加载文章列表数据
     async onLoad () {
+      // 使用延时让页面加载数据时避免手指滑动加载过多数据
+      await this.$sleep(1000)
       // 在加载文章数据时获取当前选中的频道和对应的id,同时动态的给每一个频道添加articles属性
       const currentChannel = this.channeList[this.activeIndex]
       const id = currentChannel.id
@@ -107,17 +134,52 @@ export default {
       // 根据获取的id和时间戳发送请求获取文章数据
       const res = await getArticles({
         channelId: id,
-        timestamp: this.timestamp
+        timestamp: currentChannel.timestamp
       })
       // console.log(res)
       currentChannel.articles.push(...res.results)
       // // 当文章获取后将最后一次获取文章的时间戳记录到data数据的时间戳属性中以备下次调用数据时直接可以获取到时间戳信息
-      this.timestamp = res.pre_timestamp
+      currentChannel.timestamp = res.pre_timestamp
       // // 数据加载后将控制状态设置为false
       this.loading = false
       if (res.results.length === 0) {
         this.finished = true
       }
+    },
+    // 通过点击当前的文章记录到currentArticle对象上
+    handleShowDialog (article) {
+      // 将弹出层设置为true显示
+      this.showDialog = true
+      this.currentArticle = article
+    },
+    // 在父组件中调用子组件触发的事件并处理相应的程序
+    handleSuccess () {
+      // 将弹出层隐藏
+      this.showDialog = false
+      // 找到当前选中的频道获取对应的所有文章数据
+      const currentChannel = this.channeList[this.activeIndex]
+
+      const articles = currentChannel.articles
+      // console.log(articles)
+      // 使用findIndex方法根据文章id来获取方法的返回值
+      const index = articles.findIndex((item) => {
+        return item.art_id === this.currentArticle.art_id
+      })
+      // console.log(index)
+      articles.splice(index, 1)
+    },
+    // 拉黑作者成功
+    blackListSuccess () {
+      this.showDialog = false
+      const currentChannel = this.channeList[this.activeIndex]
+      const articles = currentChannel.articles
+      // console.log(articles)
+      articles.map((item, index) => {
+        // console.log(index)
+        if (item.aut_id === this.currentArticle.aut_id) {
+          return articles.splice(index, 1)
+        }
+      })
     },
     // 下拉刷新时会触发该事件
     onRefresh () {
@@ -134,5 +196,17 @@ export default {
 .van-pull-refresh {
   margin-bottom: 100px;
   margin-top: 92px;
+}
+.close {
+  float: right;
+  font-size: 36px;
+}
+.wap-nav {
+  position: fixed;
+  right: 0;
+  line-height: 88px;
+  opacity: 0.7;
+  font-size: 40px;
+  margin-right: 20px;
 }
 </style>

@@ -12,6 +12,9 @@ import VeeValidate, { Validator } from 'vee-validate'
 import zh from 'vee-validate/dist/locale/zh_CN'
 // 导入配置REM基准值依赖
 import 'amfe-flexible'
+
+// 导入全局处理时间格式的过滤器
+import '@/filters/'
 // 注册VeeValidate
 Vue.use(VeeValidate, { events: 'blur' })
 // 配置中文包
@@ -21,6 +24,15 @@ Vue.use(Vant)
 // 注册图片懒加载到实例中
 Vue.use(Lazyload)
 Vue.config.productionTip = false
+
+//  封装一个Promise对象，并将这个延时的方法注册到当前实例的原型对象上
+Vue.prototype.$sleep = (time) => {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      resolve()
+    }, time)
+  })
+}
 
 new Vue({
   router,
