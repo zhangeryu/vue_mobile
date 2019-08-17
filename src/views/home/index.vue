@@ -1,20 +1,27 @@
 <template>
   <div>
     <!-- 头部导航 -->
-    <van-nav-bar title="首页" fixed></van-nav-bar>
+    <van-nav-bar fixed>
+      <div slot="title" @click="$router.push({name: 'search'})">首页-搜索</div>
+    </van-nav-bar>
     <!-- 下拉更新 -->
-    <van-pull-refresh v-model="isLoading" @refresh="onRefresh">
+    <van-pull-refresh v-model="isLoading" @refresh="onRefresh" :success-text="successText">
       <!-- 频道--滑动导航栏 -->
       <van-tabs color="#3e9df8" title-active-color="#3e9df8" v-model="activeIndex">
         <!-- 频道右侧图标 -->
         <div slot="nav-right">
-          <van-icon name="wap-nav" class="wap-nav" @click="showChannel=true"/>
+          <van-icon name="wap-nav" class="wap-nav" @click="showChannel=true" />
         </div>
         <van-tab v-for="item in channeList" :title="item.name" :key="item.id">
           <!-- 列表区域 -->
           <van-list v-model="loading" :finished="finished" finished-text="没有更多了" @load="onLoad">
             <!-- 文章显示区域  item.articles里的item代表的是当前的频道-->
-            <van-cell v-for="(item,index) in item.articles" :key="index" :title="item.title">
+            <van-cell
+              v-for="(item,index) in item.articles"
+              :key="index"
+              :title="item.title"
+              @click="$router.push({name: 'articles', params: {id: item.art_id}})"
+            >
               <!-- 使用vant组件中单元格的插槽属性label自定义内容 -->
               <div slot="label">
                 <!-- 使用模板标签判断当前图片的type值来渲染图片数量 -->
@@ -29,8 +36,8 @@
                   <span>{{item.aut_name}}</span>&nbsp;
                   <span>{{item.comm_count}}评论</span>&nbsp;
                   <span>{{item.pubdate | format }}</span>
-                    <!-- 关闭按钮  此时的item就是文章数据-->
-                  <van-icon name="close" class="close" @click="handleShowDialog(item)"/>
+                  <!-- 关闭按钮  此时的item就是文章数据-->
+                  <van-icon name="close" class="close" @click.stop="handleShowDialog(item)" />
                 </p>
               </div>
             </van-cell>
@@ -41,9 +48,18 @@
     <!-- 弹出层 -->
     <!-- v-model="showDialog" 是双向数据绑定，语法糖解析为 v-bind:value="showDialog" @input="showDialog=$event"-->
     <!-- 父组件通过在子组件中的props属性要将当前点击的文章对象传递给子组件 -->
-    <more-action v-model="showDialog" :currentArticle="currentArticle" @handleSuccess="handleSuccess"
-    @blackListSuccess="blackListSuccess"></more-action>
-    <home-channel v-model="showChannel"></home-channel>
+    <more-action
+      v-model="showDialog"
+      :currentArticle="currentArticle"
+      @handleSuccess="handleSuccess"
+      @blackListSuccess="blackListSuccess"
+    ></more-action>
+    <home-channel
+      v-model="showChannel"
+      :channeList="channeList"
+      :activeIndex="activeIndex"
+      @handleMychannel="handleMychannel"
+    ></home-channel>
   </div>
 </template>
 
@@ -79,7 +95,9 @@ export default {
       // 记录当前点击x文章对象
       currentArticle: {},
       // 控制顶部弹出层显示与隐藏
-      showChannel: false
+      showChannel: false,
+      // 下拉刷新成功提示内容
+      successText: ''
     }
   },
   created () {
@@ -162,7 +180,7 @@ export default {
       const articles = currentChannel.articles
       // console.log(articles)
       // 使用findIndex方法根据文章id来获取方法的返回值
-      const index = articles.findIndex((item) => {
+      const index = articles.findIndex(item => {
         return item.art_id === this.currentArticle.art_id
       })
       // console.log(index)
@@ -181,13 +199,25 @@ export default {
         }
       })
     },
+    // 非编辑状态下隐藏弹出层
+    handleMychannel (index) {
+      this.showChannel = false
+      this.activeIndex = index
+    },
     // 下拉刷新时会触发该事件
-    onRefresh () {
-      setTimeout(() => {
-        this.$toast('刷新成功')
-        this.isLoading = false
-        this.count++
-      }, 500)
+    async onRefresh () {
+      // 在加载文章数据时获取当前选中的频道和对应的id,同时动态的给每一个频道添加articles属性
+      const currentChannel = this.channeList[this.activeIndex]
+      const id = currentChannel.id
+      // console.log(currentChannel)
+      // 根据获取的id和时间戳发送请求获取文章数据
+      const res = await getArticles({
+        channelId: id,
+        timestamp: Date.now()
+      })
+      currentChannel.articles.unshift(...res.results)
+      this.isLoading = false
+      this.successText = `${res.results.length}条数据更新成功`
     }
   }
 }

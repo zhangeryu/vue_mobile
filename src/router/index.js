@@ -26,6 +26,23 @@ export default new Router({
           component: () => import(/* webpackChunkName: "home" */'@/views/home/index.vue')
         }
       ]
+    },
+    {
+      name: 'search',
+      path: '/search',
+      component: () => import(/* webpackChunkName: "search" */'@/views/search/index.vue')
+    },
+    {
+      name: 'search-result',
+      path: '/search-result/:q',
+      props: true,
+      component: () => import(/* webpackChunkName: "search-result" */'@/views/search-result/index.vue')
+    },
+    {
+      name: 'articles',
+      path: '/articles/:id',
+      props: true,
+      component: () => import(/* webpackChunkName: "article" */'@/views/articles/index.vue')
     }
   ]
 })

@@ -73,7 +73,11 @@ export default {
         // 登入成功后将按钮的状态改为默认值
 
         // 实现跳转到后台首页
-        this.$router.push({ name: 'home' })
+        this.$router.push({
+          // name: 'home',
+          path: this.$route.query.redirect || '/home'
+
+        })
       } catch (err) {
         Toast.fail('登入失败')
       }
